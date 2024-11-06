@@ -1,0 +1,4 @@
+Django
+tink[gcpkms]
+cryptography
+google-cloud-kms

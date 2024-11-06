@@ -1,0 +1,19 @@
+<form action="{% url 'create' %}" method="post">
+{% csrf_token %}
+<fieldset>
+    <input name="id" type="hidden" value="{{ secret.id  }}" />
+
+    <label for="name">Name:</label>
+    <input name="name" type="text" value="{{ secret.name }}"/>
+
+    <label for="plaintext">Secret:</label>
+    <input name="plaintext" type="text" value="{{ secret.plaintext }}"/>
+
+    <label for="encryptor">Encryptor:</label>
+    <select name="encryptor"><option value="default" selected=true>Default</option><option value="legacy">Legacy</option></select>
+
+    <label for="last_reencrypted">Last re-encrypted:</label>
+    <input name="last_reencrypted" readonly=true value="{{ secret.last_reencrypted_time  }}"/>
+</fieldset>
+<input type="submit" value="Save">
+</form>
