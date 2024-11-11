@@ -3,6 +3,14 @@ import base64
 from datetime import datetime, timedelta, timezone
 
 
+class EncryptorInterface:
+    def encrypt(self, plaintext, associated_data=b""):
+        raise NotImplementedError()
+
+    def decrypt(self, ciphertext, associated_data=b""):
+        raise NotImplementedError()
+
+
 class DecryptedValueWrapper:
     def __init__(self, value):
         self.value = value
@@ -21,12 +29,12 @@ class EncryptedField:
     def __init__(
         self,
         *,
-        encryptor,
-        ciphertext_attr,
-        last_reencryption_time_attr,
-        associated_data_attr=None,
-        fallback_encryptor=None,
-        reencryption_window=timedelta(days=30),
+        encryptor: EncryptorInterface,
+        ciphertext_attr: str,
+        last_reencryption_time_attr: str,
+        associated_data_attr: str | None = None,
+        fallback_encryptor: EncryptorInterface | None = None,
+        reencryption_window: timedelta = timedelta(days=30),
     ):
         self.encryptor = encryptor
         self.ciphertext_attr = ciphertext_attr
@@ -105,6 +113,7 @@ class EncryptedField:
             print("trying to reencrypt")
             print(f"encoded {encoded_ciphertext} and plaintext {plaintext}")
             self.__set__(obj, plaintext)
+            obj.save(update_fields=[self.ciphertext_attr, self.last_reencryption_time_attr])
 
         return DecryptedValueWrapper(plaintext)
 
@@ -113,4 +122,3 @@ class EncryptedField:
         print(f"encryption produced {new_ciphertext}")
         setattr(obj, self.ciphertext_attr, new_ciphertext)
         setattr(obj, self.last_reencryption_time_attr, datetime.now())
-        obj.save(update_fields=[self.ciphertext_attr, self.last_reencryption_time_attr])

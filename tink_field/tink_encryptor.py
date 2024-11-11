@@ -1,13 +1,11 @@
-import base64
-
 import tink
 from tink import aead
 from tink.integration import gcpkms
 from tink import secret_key_access
 
-from django.conf import settings
+from .encrypted_field import EncryptorInterface
 
-_encryptor = None
+from django.conf import settings
 
 
 def can_use_kms():
@@ -29,7 +27,10 @@ def kms_path():
         return f"projects/{settings.GCP_PROJECT_ID}/locations/{settings.KMS_LOCATION_ID}/keyRings/{settings.KMS_KEY_RING_ID}/cryptoKeys/{settings.KMS_KEY_ID}"
 
 
-class Encryptor:
+class TinkEncryptor(EncryptorInterface):
+    """
+    Minimal encryptor. Deals in bytes.
+    """
     def __init__(self):
         aead.register()
 
@@ -67,26 +68,19 @@ class Encryptor:
             raise Exception("No encryptor settings provided")
         pass
 
-    def encrypt(self, plaintext, associated_data):
-        if type(plaintext) == str:
-            plaintext = plaintext.encode("utf-8")
-        if type(associated_data) == str:
-            associated_data = associated_data.encode("utf-8")
-        ciphertext = self.encryptor.encrypt(plaintext, associated_data)
+    def encrypt(self, plaintext: bytes, associated_data: bytes = b"") -> bytes:
+        return self.encryptor.encrypt(plaintext, associated_data)
 
-        return base64.b64encode(ciphertext).decode("utf-8")
-
-    def decrypt(self, encoded_ciphertext, associated_data):
-        if type(associated_data) == str:
-            associated_data = associated_data.encode("utf-8")
-
-        ciphertext = base64.b64decode(encoded_ciphertext)
-        return self.encryptor.decrypt(ciphertext, associated_data).decode("utf-8")
+    def decrypt(self, ciphertext: bytes, associated_data: bytes = b"") -> bytes:
+        return self.encryptor.decrypt(ciphertext, associated_data)
 
 
-def get_encryptor():
+_encryptor: TinkEncryptor = None
+
+def get_encryptor() -> TinkEncryptor:
     global _encryptor
     if _encryptor is None:
-        _encryptor = Encryptor()
+        _encryptor = TinkEncryptor()
 
     return _encryptor
+

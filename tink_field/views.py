@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 
-from .legacy_encryptor import legacy_encryptor
+from .legacy_encryptor import get_encryptor as legacy_encryptor
 
 from .models import Secret
 
@@ -25,15 +25,14 @@ def create(request):
     else:
         print(request.POST)
 
+        secret = Secret(name=request.POST["name"])
         if request.POST["encryptor"] == "default":
-            secret = Secret(name=request.POST["name"])
             secret.plaintext = request.POST["plaintext"]
-            secret.save()
         else:
-            secret = Secret(name=request.POST["name"])
-            ciphertext = legacy_encryptor.encrypt(request.POST["plaintext"])
+            ciphertext = legacy_encryptor().encrypt(request.POST["plaintext"])
             print(f"saving ciphertext {ciphertext}")
             secret.encrypted_secret = ciphertext
-            secret.save()
+
+        secret.save()
 
         return HttpResponseRedirect(reverse("index"))
