@@ -31,6 +31,7 @@ class TinkEncryptor(EncryptorInterface):
     """
     Minimal encryptor. Deals in bytes.
     """
+
     def __init__(self):
         aead.register()
 
@@ -68,7 +69,13 @@ class TinkEncryptor(EncryptorInterface):
             raise Exception("No encryptor settings provided")
         pass
 
-    def encrypt(self, plaintext: bytes, associated_data: bytes = b"") -> bytes:
+    def encrypt(
+        self, plaintext: str | bytes, associated_data: str | bytes = b""
+    ) -> bytes:
+        if type(plaintext) == str:
+            plaintext = plaintext.encode("utf-8")
+        if type(associated_data) == str:
+            associated_data = associated_data.encode("utf-8")
         return self.encryptor.encrypt(plaintext, associated_data)
 
     def decrypt(self, ciphertext: bytes, associated_data: bytes = b"") -> bytes:
@@ -77,10 +84,10 @@ class TinkEncryptor(EncryptorInterface):
 
 _encryptor: TinkEncryptor = None
 
+
 def get_encryptor() -> TinkEncryptor:
     global _encryptor
     if _encryptor is None:
         _encryptor = TinkEncryptor()
 
     return _encryptor
-

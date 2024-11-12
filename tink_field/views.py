@@ -7,32 +7,29 @@ from .legacy_encryptor import get_encryptor as legacy_encryptor
 from .models import Secret
 
 
-def index(request):
-    secrets = Secret.objects.all()
-    response = "<table><tr><th>name</th><th>plaintext</th><th>last reencrypted</th><th>ciphertext</th></tr>"
-
-    def print_secret(s):
-        plaintext = s.plaintext.decrypted_value() if s.plaintext else ""
-        return f"<tr><td>{s.name}</td><td>{plaintext}</td><td>{s.last_reencryption_time}</td><td>{s.encrypted_secret}</td>"
-
-    response += "".join(map(print_secret, secrets))
-    return HttpResponse(response)
-
-
 def create(request):
     if request.method == "GET":
         return render(request, "tink_field/create.html")
     else:
-        print(request.POST)
+        name = request.POST["name"]
+        plaintext = request.POST["plaintext"]
+        plaintext_json = {
+            "name": name,
+            "secret": plaintext,
+        }
+        new_secret = Secret(
+            name=name, _plaintext_secret=plaintext, _plaintext_json=plaintext_json
+        )
 
-        secret = Secret(name=request.POST["name"])
         if request.POST["encryptor"] == "default":
-            secret.plaintext = request.POST["plaintext"]
+            # Set all our encrypted fields the normal way
+            new_secret.plaintext_from_binary = plaintext
+            new_secret.plaintext_from_b64 = plaintext
+            new_secret.plaintext_from_json = plaintext_json
         else:
-            ciphertext = legacy_encryptor().encrypt(request.POST["plaintext"])
-            print(f"saving ciphertext {ciphertext}")
-            secret.encrypted_secret = ciphertext
+            # Bypass `EncryptedField`. Not bothering with the binary one
+            new_secret.b64_encrypted_secret = legacy_encryptor().encrypt(plaintext)
+            new_secret.json_with_encrypted_secret = plaintext_json
 
-        secret.save()
-
-        return HttpResponseRedirect(reverse("index"))
+        new_secret.save()
+        return HttpResponseRedirect(reverse("create"))

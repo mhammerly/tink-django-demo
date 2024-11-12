@@ -113,7 +113,9 @@ class EncryptedField:
             print("trying to reencrypt")
             print(f"encoded {encoded_ciphertext} and plaintext {plaintext}")
             self.__set__(obj, plaintext)
-            obj.save(update_fields=[self.ciphertext_attr, self.last_reencryption_time_attr])
+            obj.save(
+                update_fields=[self.ciphertext_attr, self.last_reencryption_time_attr]
+            )
 
         return DecryptedValueWrapper(plaintext)
 

@@ -9,6 +9,7 @@ first set up the environment:
 $ python -m venv .venv
 $ source .venv/bin/activate
 $ pip install -r requirements.txt
+$ python manage.py createsuperuser # create an admin account
 ```
 
 next, in `demo/settings.py` or `demo/settings_local.py`, configure one or both of:
@@ -23,9 +24,11 @@ $ python manage.py migrate
 $ python manage.py runserver
 ```
 
-`/secrets/` displays a list of secrets in the database already. `/secrets/create` is a form to create a new secret. if the "Encryptor" dropdown is left on "Default", a tink-based encryptor will be used for the secret and its last-reencrypted timestamp will be filled out. if instead "Legacy" is selected, a demo Fernet encryptor will be used and the last-reencrypted timestamp will be left blank. either way, submitting the form re-directs to `/secrets/`.
+the demo revolves around the `Secret` model and the `EncryptedField` class it uses. new secrets should be created using the `/secrets/create` endpoint. existing secrets should be viewed in the admin UI at `/admin/tink_field/secret/`. re-encryption can be triggered in the admin interface by selecting one or more `Secret`s and running the "Maybe trigger reencryption" action.
 
-each time a secret is accessed, the demo will check the last-reencrypted timestamp to decide whether the secret needs to be re-encrypted. if the timestamp is too long ago, or if it's non-existent (as it would be if the secret was created with the legacy encryptor), it will re-encrypt. thus, secrets created with the legacy encryptor will actually never be displayed until after they have been re-encrypted. if you would like to see that re-encryption step-by-step, change the redirect on `/secrets/create` and use the django admin UI to view the secret after it has been created.
+when creating a new secret with the `/secrets/create` view, there is an "Encryptor" option to choose how the value will be encrypted. if "Default" is selected, a tink-based encryptor will be used for encryption and last-reencrypted timestamps will be filled out. if "Legacy" is selected, either a Fernet-based encryptor or no encryptor at all will be used for encryption and last-reencrypted timestamps will be left null.
+
+each time a secret is accessed through `EncryptedField`, the `EncryptedField` will check the secret's last-reencrypted timestamp to decide whether the secret needs to be re-encrypted. if the timestamp is too long ago, or if it's non-existent (as it would be if the secret was created with the legacy encryptor), it will re-encrypt. accessing the secret through `EncryptedField` is all the "Maybe trigger reencryption" action does to re-encrypt values; in a real system, the reencryption will happen transparently whenever you access the secret.
 
 ## `EncryptedField`
 
@@ -35,12 +38,12 @@ each time a secret is accessed, the demo will check the last-reencrypted timesta
 - (optional) a column containing associated data (such as a name/id) that should be bound to the ciphertext
 
 it additionally take three more parameters:
-- an encryption module to actually handle encryption and decryption
+- an encryption module to actually handle encryption and decryption. this should subclass `EncryptorInterface`
 - a `timedelta` representing the cutoff after which re-encryption should happen
 - (optional) a fallback encryption module that will be used to decrypt if the primary module fails.
   - existing encrypted fields can be gradually migrated to a new encryptor this way
 
-`tink_field/models.py` demonstrates a usage:
+`tink_field/models.py` demonstrate a few different usages. one simple usage could look like:
 ```python
 class Secret(models.Model):
     name = models.CharField(max_length=50)
@@ -68,6 +71,16 @@ class Secret(models.Model):
   - return a `DecryptedValueWrapper` (if decryption succeeded) or `None` (if decryption failed)
 
 `DecryptedValueWrapper` is essentially a reminder to developers that the data they are dealing with is supposed to be secret. the actual plaintext value is accessed via the `decrypted_value()` method (e.g. `my_secret.plaintext.decrypted_value()`).
+
+### supported field types
+
+`tink` expects plaintext/ciphertext/associated data to all be passed in as `bytes`. as long as your `EncryptorInterface` does that, anything should work.
+
+`tink_field/models.py` shows a few django field types that can be encrypted with `EncryptedField`:
+- a `CharField` with the ciphertext stored as a base64-encoded utf-8 string
+- a `BinaryField` with the ciphertext stored as raw bytes
+- a `JSONField` (or rather, a specific key inside a `JSONField`) with the ciphertext stored as a base64-encoded utf-8 string
+
 
 ## cryptography
 
